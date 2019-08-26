@@ -7,8 +7,8 @@ import click
 @click.command()
 @click.option('--version', is_flag=True, default=False)
 @click.argument('action', default='sign', type=click.Choice(['sign']))
-def run(action, version):
-    print('hiya')
+@click.argument('targets', type=click.Path(exists=True), nargs=-1)
+def run(action, version, targets):
     if version:
         try:
             from jgpg.version import version as vstr
@@ -23,3 +23,6 @@ def run(action, version):
                 raise
         print(f'{vstr} {sys.argv}')
         sys.exit(0)
+
+    if action == 'sign':
+        print(f'should sign: {targets}')
