@@ -2,3 +2,5 @@ __pycache__
 build
 jgpg/version.py
 *.pyc
+*.egg-info
+dist

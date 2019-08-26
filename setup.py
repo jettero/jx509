@@ -17,7 +17,7 @@ class PyTest(TestCommand):
         errno = pytest.main(shlex.split(self.pytest_args))
         sys.exit(errno)
 
-setup(name='gpg',
+setup(name='jgpg',
     use_scm_version = {
         'write_to': 'jgpg/version.py',
         'tag_regex': r'^(?P<prefix>v)(?P<version>\d+\.\d+\.\d+)(?P<suffix>.*)?$',
