@@ -3,12 +3,12 @@
 import sys, os
 import click
 
-from jgpg.tools import list_, msign
+from jgpg.tools import list_, msign, verify
 
 @click.command()
 @click.option('--debug', is_flag=True, default=False)
 @click.option('--version', is_flag=True, default=False)
-@click.argument('action', default='msign', type=click.Choice(['msign', 'list', 'help']))
+@click.argument('action', default='msign', type=click.Choice(['msign', 'list', 'help', 'verify']))
 @click.argument('targets', type=click.Path(exists=True), nargs=-1)
 def run(action, debug, version, targets):
     if version:
@@ -36,6 +36,9 @@ def run(action, debug, version, targets):
 
     elif action == 'msign':
         msign(targets)
+
+    elif action == 'verify':
+        verify(targets)
 
     elif action == 'list':
         list_()
