@@ -3,13 +3,14 @@
 import sys, os
 import click
 
-from jgpg.tools import list_, sign
+from jgpg.tools import list_, msign
 
 @click.command()
+@click.option('--debug', is_flag=True, default=False)
 @click.option('--version', is_flag=True, default=False)
-@click.argument('action', default='sign', type=click.Choice(['sign', 'list', 'help']))
+@click.argument('action', default='msign', type=click.Choice(['msign', 'list', 'help']))
 @click.argument('targets', type=click.Path(exists=True), nargs=-1)
-def run(action, version, targets):
+def run(action, debug, version, targets):
     if version:
         try:
             from jgpg.version import version as vstr
@@ -26,13 +27,20 @@ def run(action, version, targets):
         print(f'{vstr} {sys.argv}')
         sys.exit(0)
 
+    if debug:
+        import logging
+        logging.basicConfig(level=logging.DEBUG)
+
     if action == 'help':
         help()
 
-    elif action == 'sign':
-        sign(targets)
+    elif action == 'msign':
+        msign(targets)
 
     elif action == 'list':
         list_()
+
+    else:
+        raise Exception(f'"{action}" not understood')
 
     sys.exit(0)
