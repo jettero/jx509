@@ -17,6 +17,7 @@ def run(action, version, targets):
                 # this is relatively unsafe to inflict on unsuspecting users,
                 # but I'm relatively careful to make sure it's probably just me
                 # running ./lrun.py in my dev dir
+                print('running ./setup.py --version')
                 os.execvp('./setup.py', ['./setup.py', '--version'])
                 from jgpg.version import version as vstr
             else:
