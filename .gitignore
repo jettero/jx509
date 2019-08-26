@@ -4,3 +4,5 @@ jgpg/version.py
 *.pyc
 *.egg-info
 dist
+MANIFEST
+file
