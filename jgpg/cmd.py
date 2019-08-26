@@ -5,8 +5,9 @@ import sys, os
 import click
 
 @click.command()
-@click.option('--version',       is_flag=True, default=False)
-def run(version):
+@click.option('--version', is_flag=True, default=False)
+@click.argument('action', default='sign', type=click.Choice(['sign']))
+def run(action, version):
     print('hiya')
     if version:
         try:
