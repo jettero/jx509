@@ -1,12 +1,13 @@
-#!/usr/bin/env python
 # coding: utf-8
 
 import sys, os
 import click
 
+from jgpg.tools import list_, sign
+
 @click.command()
 @click.option('--version', is_flag=True, default=False)
-@click.argument('action', default='sign', type=click.Choice(['sign']))
+@click.argument('action', default='sign', type=click.Choice(['sign', 'list', 'help']))
 @click.argument('targets', type=click.Path(exists=True), nargs=-1)
 def run(action, version, targets):
     if version:
@@ -25,5 +26,13 @@ def run(action, version, targets):
         print(f'{vstr} {sys.argv}')
         sys.exit(0)
 
-    if action == 'sign':
-        print(f'should sign: {targets}')
+    if action == 'help':
+        help()
+
+    elif action == 'sign':
+        sign(targets)
+
+    elif action == 'list':
+        list_()
+
+    sys.exit(0)
