@@ -2,7 +2,7 @@
 
 # NOTE: this is just a convenience wrapper for running jstat from the repo
 
-import jgpg.cmd
+import jx509.cmd
 
 if __name__ == '__main__':
-    jgpg.cmd.run()
+    jx509.cmd.run()

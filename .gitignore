@@ -1,6 +1,6 @@
 __pycache__
 build
-jgpg/version.py
+jx509/version.py
 *.pyc
 *.egg-info
 dist

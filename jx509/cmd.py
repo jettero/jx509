@@ -3,7 +3,7 @@
 import sys, os
 import click
 
-from jgpg.tools import list_, msign, verify
+from jx509.tools import list_, msign, verify
 
 @click.command()
 @click.option('--debug', is_flag=True, default=False)
@@ -13,15 +13,15 @@ from jgpg.tools import list_, msign, verify
 def run(action, debug, version, targets):
     if version:
         try:
-            from jgpg.version import version as vstr
+            from jx509.version import version as vstr
         except ModuleNotFoundError:
-            if os.path.isfile('./setup.py') and sys.argv[0] == './lrun.py' and os.path.isdir('jgpg'):
+            if os.path.isfile('./setup.py') and sys.argv[0] == './lrun.py' and os.path.isdir('jx509'):
                 # this is relatively unsafe to inflict on unsuspecting users,
                 # but I'm relatively careful to make sure it's probably just me
                 # running ./lrun.py in my dev dir
                 print('running ./setup.py --version')
                 os.execvp('./setup.py', ['./setup.py', '--version'])
-                from jgpg.version import version as vstr
+                from jx509.version import version as vstr
             else:
                 raise
         print(f'{vstr} {sys.argv}')

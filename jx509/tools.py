@@ -6,7 +6,7 @@ import logging
 import hashlib
 import gnupg
 
-log = logging.getLogger('jgpg.tools')
+log = logging.getLogger('jx509.tools')
 
 def list_():
     gpg = gnupg.GPG()
