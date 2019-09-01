@@ -11,3 +11,4 @@ SIGNATURE
 *.*crt
 *.csr
 *.pem
+*.srl
