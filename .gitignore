@@ -7,3 +7,7 @@ dist
 MANIFEST
 file
 SIGNATURE
+*.key
+*.crt
+*.csr
+*.pem
