@@ -8,6 +8,6 @@ MANIFEST
 file
 SIGNATURE
 *.key
-*.crt
+*.*crt
 *.csr
 *.pem
