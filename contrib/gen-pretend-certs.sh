@@ -19,3 +19,6 @@ S=( x509 -req -CA ca-root.crt -CAkey ca-root.key -CAcreateserial "${O[@]}" )
 [ -f certycert.key ] || openssl req -x509 "${K[@]}" -keyout certycert.key -out certycert.self_crt -subj "$CCS"
 [ -f certycert.csr ] || openssl req -new -key certycert.key -out certycert.csr -subj "$CCS"
 [ -f certycert.crt ] || openssl "${S[@]}" -in certycert.csr -out certycert.crt
+
+[ -f private.key ] || ln -svf certycert.key private.key
+[ -f public.crt  ] || ln -svf certycert.crt public.crt
