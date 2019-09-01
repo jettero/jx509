@@ -12,9 +12,12 @@ for item in dir(jx509.tools):
 @click.command()
 @click.option('--debug', is_flag=True, default=False)
 @click.option('--version', is_flag=True, default=False)
+@click.option('-k', '--signing-key', default='private.key')
+@click.option('-m', '--manifest-name', default='MANIFEST')
+@click.option('-s', '--signature-name', default='SIGNATURE')
 @click.argument('action', default='msign', type=click.Choice(cmds))
 @click.argument('targets', type=click.Path(exists=True), nargs=-1)
-def run(action, debug, version, targets):
+def run(action, debug, version, targets, signing_key, manifest_name, signature_name):
     if version:
         try:
             from jx509.version import version as vstr
@@ -41,7 +44,10 @@ def run(action, debug, version, targets):
         help()
 
     elif hasattr(jx509.tools, fname):
-        getattr(jx509.tools, fname)(targets)
+        getattr(jx509.tools, fname)(targets,
+            key_file=signing_key,
+            mfilename=manifest_name,
+            sfilename=signature_name)
 
     else:
         raise Exception(f'"{action}" not understood')

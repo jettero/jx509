@@ -12,3 +12,4 @@ SIGNATURE
 *.csr
 *.pem
 *.srl
+*.sig
