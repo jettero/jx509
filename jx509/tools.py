@@ -56,6 +56,16 @@ def sign_target(fname, ofname, key_file='private.key'):
         fh.write(RSA.PEM.encode(sig, f'Detached Signature of {fname}'))
         fh.write('\n')
 
+def verify_target(fname, ifname, cert_file='public.crt'):
+    with open(cert_file, 'r') as fh:
+        public_cert = RSA.importKey(fh.read())
+    verifier = PKCS1_v1_5.new(public_cert)
+    with open(ifile, 'r') as fh:
+        signature,_,_ = RSA.PEM.decode(fh.read()) # also returns header and decrypted-status
+    if verifier.verify(hash_target(fname, obj_mode=True), signature):
+        return True
+    return False
+
 def cmd_sign(targets, key_file='private.key', **kw):
     for target in targets:
         sign_target(target, f'{target}.sig', key_file=key_file)
@@ -67,28 +77,20 @@ def cmd_msign(targets, mfilename='MANIFEST', sfilename='SIGNATURE', **kw):
     sign_target(mfilename, sfilename)
 
 
-# def verify(targets, mfname='MANIFEST', sfname='SIGNATURE'):
-#     gpg = gnupg.GPG()
-#     if not sfname:
-#         if os.path.isfile('SIGNATURE'):
-#             sfname = 'SIGNATURE'
-#         elif os.path.isfile(f'{mfname}.sig'):
-#             sfname = f'{mfname}.sig'
-#         elif os.path.isfile(f'{mfname}.asc'):
-#             sfname = f'{mfname}.asc'
-#     with open(sfname, 'rb') as sfh:
-#         verified = gpg.verify_file(sfh, mfname)
-#     if verified.trust_level is not None and verified.trust_level >= verified.TRUST_FULLY:
-#         hash_dict = dict()
-#         with open(mfname, 'r') as mfh:
-#             for line in mfh:
-#                 hash,fname = line.strip().split()
-#                 hash_dict[fname] = hash
-#         def verify_hash(fname):
-#             digest = hash_target(fname)
-#             if digest != hash_dict[fname]:
-#                 raise Exception(f'hash for {fname} does not match signed manifest:\n'
-#                     f'     {digest}\n  vs {hash_dict[fname]}')
-#         descend_targets(targets, verify_hash)
-#     else:
-#         raise Exception(f'{mfname} does not match signature in {sfname} or is otherwise not trusted')
+def verify(targets, mfname='MANIFEST', sfname='SIGNATURE', cert_file='public.crt'):
+    if not verify_target(mfname, sfname, cert_file=cert_file):
+        return False
+    digests = dict()
+    for target in targets:
+        digests[os.path.abspath(target)] = None
+    with open(mfname, 'r') as fh:
+        for line in fh.readlines():
+            digest,mfname = line.split('  ', 1)
+            mfname = os.path.abspath(mfname)
+            if mfname in digets:
+                digests[mfname] = digest
+    for mfname in digests:
+        digest = digests[mfname]
+        if digest is None or digest != hash_target(mfname):
+            return False
+    return True
