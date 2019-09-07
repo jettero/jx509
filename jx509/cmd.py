@@ -46,8 +46,8 @@ def run(action, debug, version, targets, signing_key, manifest_name, signature_n
     elif hasattr(jx509.tools, fname):
         getattr(jx509.tools, fname)(targets,
             key_file=signing_key,
-            mfilename=manifest_name,
-            sfilename=signature_name)
+            mfname=manifest_name,
+            sfname=signature_name)
 
     else:
         raise Exception(f'"{action}" not understood')

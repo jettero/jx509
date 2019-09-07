@@ -37,15 +37,15 @@ def descend_targets(targets, cb):
                     fname_ = os.path.join(dirpath, fname)
                     cb(fname_)
 
-def manifest(targets, mfilename='MANIFEST'):
-    with open(mfilename, 'w') as mfh:
+def manifest(targets, mfname='MANIFEST'):
+    with open(mfname, 'w') as mfh:
         def append_hash(fname):
             digest = hash_target(fname)
             mfh.write(f'{digest} {fname}\n')
         descend_targets(targets, append_hash)
 
-def cmd_manifest(targets, mfilename='MANIFEST', **kw):
-    manifest(targets, mfilename=mfilename)
+def cmd_manifest(targets, mfname='MANIFEST', **kw):
+    manifest(targets, mfname=mfname)
 
 def sign_target(fname, ofname, key_file='private.key'):
     with open(key_file, 'r') as fh:
@@ -56,7 +56,7 @@ def sign_target(fname, ofname, key_file='private.key'):
         fh.write(RSA.PEM.encode(sig, f'Detached Signature of {fname}'))
         fh.write('\n')
 
-def verify_target(fname, ifname, cert_file='public.crt'):
+def verify_signature(fname, ifname, cert_file='public.crt'):
     with open(cert_file, 'r') as fh:
         public_cert = RSA.importKey(fh.read())
     verifier = PKCS1_v1_5.new(public_cert)
@@ -70,27 +70,31 @@ def cmd_sign(targets, key_file='private.key', **kw):
     for target in targets:
         sign_target(target, f'{target}.sig', key_file=key_file)
 
-def cmd_msign(targets, mfilename='MANIFEST', sfilename='SIGNATURE', **kw):
-    manifest(targets, mfilename=mfilename)
-    if sfilename in (None, False):
-        sfilename = f'{mfilename}.sig'
-    sign_target(mfilename, sfilename)
+def cmd_msign(targets, mfname='MANIFEST', sfname='SIGNATURE', **kw):
+    manifest(targets, mfname=mfname)
+    if sfname in (None, False):
+        sfname = f'{mfname}.sig'
+    sign_target(mfname, sfname)
 
 
-def verify(targets, mfname='MANIFEST', sfname='SIGNATURE', cert_file='public.crt'):
-    if not verify_target(mfname, sfname, cert_file=cert_file):
-        return False
+def verify_files(targets, mfname='MANIFEST', sfname='SIGNATURE', cert_file='public.crt'):
+    ret = { mfname: False, sfname: False }
+    if not verify_signature(mfname, sfname, cert_file=cert_file):
+        return ret
+    ret[mfname] = ret[sfname] = True
     digests = dict()
     for target in targets:
-        digests[os.path.abspath(target)] = None
+        digests[target] = None
     with open(mfname, 'r') as fh:
         for line in fh.readlines():
-            digest,mfname = line.split('  ', 1)
-            mfname = os.path.abspath(mfname)
-            if mfname in digets:
-                digests[mfname] = digest
-    for mfname in digests:
-        digest = digests[mfname]
-        if digest is None or digest != hash_target(mfname):
-            return False
-    return True
+            digest,manifested_fname = line.split('  ', 1)
+            if manifested_fname in digests:
+                digests[manifested_fname] = digest
+    for vfname in digests:
+        digest = digests[vfname]
+        ret[vfname] = bool( digest is not None and digest == hash_target(vfname) )
+    return ret
+
+def cmd_verify(targets, mfname='MANIFEST', sfname='SIGNATURE', key_file='public.crt'):
+    import json
+    print( json.dumps(verify_files(targets, mfname=mfname, sfname=sfname, cert_file=key_file), indent=2) )
