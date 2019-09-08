@@ -20,6 +20,9 @@ class STATUS:
     UNKNOWN = 'unknown'
 
 
+def normalize_path(path):
+    return os.path.normpath(path)
+
 def hash_target(fname, obj_mode=False):
     s256 = SHA256.new()
     with open(fname, 'rb') as fh:
@@ -35,6 +38,7 @@ def hash_target(fname, obj_mode=False):
 
 def cmd_hash(targets, **kw):
     for target in targets:
+        target = normalize_path(target)
         hash = hash_target(target)
         print(f'{hash}  {target}')
 
@@ -98,12 +102,14 @@ def verify_files(targets, mfname='MANIFEST', sfname='SIGNATURE', cert_file='publ
     ret[mfname] = STATUS.VERIFIED
     digests = dict()
     for target in targets:
+        target = normalize_path(target)
         digests[target] = STATUS.UNKNOWN
     with open(mfname, 'r') as fh:
         for line in fh.readlines():
             matched = MANIFEST_RE.match(line)
             if matched:
                 digest,manifested_fname = matched.groups()
+                manifested_fname = normalize_path(manifested_fname)
                 if manifested_fname in digests:
                     digests[manifested_fname] = digest
     for vfname in digests:
