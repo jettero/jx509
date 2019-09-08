@@ -3,11 +3,14 @@
 import os
 import getpass
 import logging
+import re
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 
 log = logging.getLogger('jx509.tools')
+
+MANIFEST_RE = re.compile(r'^\s*(?P<digest>[0-9a-fA-F]+)\s+(?P<fname>.+)$')
 
 def hash_target(fname, obj_mode=False):
     s256 = SHA256.new()
@@ -60,7 +63,7 @@ def verify_signature(fname, ifname, cert_file='public.crt'):
     with open(cert_file, 'r') as fh:
         public_cert = RSA.importKey(fh.read())
     verifier = PKCS1_v1_5.new(public_cert)
-    with open(ifile, 'r') as fh:
+    with open(ifname, 'r') as fh:
         signature,_,_ = RSA.PEM.decode(fh.read()) # also returns header and decrypted-status
     if verifier.verify(hash_target(fname, obj_mode=True), signature):
         return True
@@ -78,21 +81,29 @@ def cmd_msign(targets, mfname='MANIFEST', sfname='SIGNATURE', **kw):
 
 
 def verify_files(targets, mfname='MANIFEST', sfname='SIGNATURE', cert_file='public.crt'):
-    ret = { mfname: False, sfname: False }
+    ret = { mfname: 'fail', sfname: 'unknown' }
     if not verify_signature(mfname, sfname, cert_file=cert_file):
         return ret
-    ret[mfname] = ret[sfname] = True
+    ret[sfname] = 'ok'
+    ret[mfname] = 'verified'
     digests = dict()
     for target in targets:
-        digests[target] = None
+        digests[target] = 'unknown'
     with open(mfname, 'r') as fh:
         for line in fh.readlines():
-            digest,manifested_fname = line.split('  ', 1)
-            if manifested_fname in digests:
-                digests[manifested_fname] = digest
+            matched = MANIFEST_RE.match(line)
+            if matched:
+                digest,manifested_fname = matched.groups()
+                if manifested_fname in digests:
+                    digests[manifested_fname] = digest
     for vfname in digests:
         digest = digests[vfname]
-        ret[vfname] = bool( digest is not None and digest == hash_target(vfname) )
+        if digest == 'unknown':
+            ret[vfname] = 'unknown'
+        elif digest == hash_target(vfname):
+            ret[vfname] = 'verified'
+        else:
+            ret[vfname] = 'failed'
     return ret
 
 def cmd_verify(targets, mfname='MANIFEST', sfname='SIGNATURE', key_file='public.crt'):
