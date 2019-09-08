@@ -4,6 +4,7 @@ import os
 import getpass
 import logging
 import re
+from collections import OrderedDict
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
@@ -11,6 +12,13 @@ from Crypto.Signature import PKCS1_v1_5
 log = logging.getLogger('jx509.tools')
 
 MANIFEST_RE = re.compile(r'^\s*(?P<digest>[0-9a-fA-F]+)\s+(?P<fname>.+)$')
+
+class STATUS:
+    OK = 'ok'
+    FAIL = 'fail'
+    VERIFIED = 'verified'
+    UNKNOWN = 'unknown'
+
 
 def hash_target(fname, obj_mode=False):
     s256 = SHA256.new()
@@ -81,14 +89,16 @@ def cmd_msign(targets, mfname='MANIFEST', sfname='SIGNATURE', **kw):
 
 
 def verify_files(targets, mfname='MANIFEST', sfname='SIGNATURE', cert_file='public.crt'):
-    ret = { mfname: 'fail', sfname: 'unknown' }
+    ret = OrderedDict()
+    ret[mfname] = STATUS.FAIL
+    ret[sfname] = STATUS.UNKNOWN
     if not verify_signature(mfname, sfname, cert_file=cert_file):
         return ret
-    ret[sfname] = 'ok'
-    ret[mfname] = 'verified'
+    ret[sfname] = STATUS.OK
+    ret[mfname] = STATUS.VERIFIED
     digests = dict()
     for target in targets:
-        digests[target] = 'unknown'
+        digests[target] = STATUS.UNKNOWN
     with open(mfname, 'r') as fh:
         for line in fh.readlines():
             matched = MANIFEST_RE.match(line)
@@ -98,12 +108,12 @@ def verify_files(targets, mfname='MANIFEST', sfname='SIGNATURE', cert_file='publ
                     digests[manifested_fname] = digest
     for vfname in digests:
         digest = digests[vfname]
-        if digest == 'unknown':
-            ret[vfname] = 'unknown'
+        if digest == STATUS.UNKNOWN:
+            ret[vfname] = STATUS.UNKNOWN
         elif digest == hash_target(vfname):
-            ret[vfname] = 'verified'
+            ret[vfname] = STATUS.VERIFIED
         else:
-            ret[vfname] = 'failed'
+            ret[vfname] = STATUS.FAIL
     return ret
 
 def cmd_verify(targets, mfname='MANIFEST', sfname='SIGNATURE', key_file='public.crt'):
