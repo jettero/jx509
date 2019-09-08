@@ -17,6 +17,8 @@ class PyTest(TestCommand):
         errno = pytest.main(shlex.split(self.pytest_args))
         sys.exit(errno)
 
+MODS = [ 'pycrypto', 'click' ]
+
 setup(name='jx509',
     use_scm_version = {
         'write_to': 'jx509/version.py',
@@ -24,17 +26,15 @@ setup(name='jx509',
         # NOTE: use ./setup.py --version to regenerate version.py and print the
         # computed version
     },
-    description   = "jettero's [silly] GnuPG tool",
-    author        = 'Paul Miller',
-    author_email  = 'paul@jettero.pl',
-    url           = 'https://github.com/jettero/jx509',
-    tests_require = ['pytest',],
-    cmdclass      = {'test': PyTest},
-    packages      = find_packages(),
-    setup_requires = [ 'setuptools_scm' ],
-    install_requires=[
-        'click',
-    ],
+    description      = "jettero's [silly] GnuPG tool",
+    author           = 'Paul Miller',
+    author_email     = 'paul@jettero.pl',
+    url              = 'https://github.com/jettero/jx509',
+    cmdclass         = {'test': PyTest},
+    packages         = find_packages(),
+    setup_requires   = [ 'setuptools_scm' ],
+    tests_require    = [ 'pytest' ] + MODS,
+    install_requires = MODS,
     entry_points={
         'console_scripts': [
             'jx509 = jx509:run',
