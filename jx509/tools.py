@@ -4,14 +4,14 @@ import os
 import getpass
 import logging
 import re
+import json
+
 from collections import OrderedDict
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 
-log = logging.getLogger('jx509.tools')
-
-MANIFEST_RE = re.compile(r'^\s*(?P<digest>[0-9a-fA-F]+)\s+(?P<fname>.+)$')
+log = logging.getLogger(__name__)
 
 class STATUS:
     OK = 'ok'
@@ -19,6 +19,10 @@ class STATUS:
     VERIFIED = 'verified'
     UNKNOWN = 'unknown'
 
+MANIFEST_RE = re.compile(r'^\s*(?P<digest>[0-9a-fA-F]+)\s+(?P<fname>.+)$')
+
+def jsonify(obj, indent=2):
+    return json.dumps(obj, indent=indent)
 
 def normalize_path(path):
     return os.path.normpath(path)
@@ -36,12 +40,6 @@ def hash_target(fname, obj_mode=False):
     log.debug(f'hashed {fname}: {hd}')
     return hd
 
-def cmd_hash(targets, **kw):
-    for target in targets:
-        target = normalize_path(target)
-        hash = hash_target(target)
-        print(f'{hash}  {target}')
-
 def descend_targets(targets, cb):
     for fname in targets:
         if os.path.isfile(fname):
@@ -52,15 +50,27 @@ def descend_targets(targets, cb):
                     fname_ = os.path.join(dirpath, fname)
                     cb(fname_)
 
-def manifest(targets, mfname='MANIFEST'):
-    with open(mfname, 'w') as mfh:
+def manifest(targets, mfname='MANIFEST', output_json=False):
+    # It'd be nice to DRY this somewhat. It's probably not worth it though the
+    # non-json form (while super similar) doesn't have to store all the results
+    # in ram, it can just write as it goes. Is that better than DRY? ¯\_(ツ)_/¯
+    if output_json:
+        json_out = OrderedDict()
         def append_hash(fname):
+            fname = normalize_path(fname)
             digest = hash_target(fname)
-            mfh.write(f'{digest} {fname}\n')
+            json_out[fname] = digest
         descend_targets(targets, append_hash)
-
-def cmd_manifest(targets, mfname='MANIFEST', **kw):
-    manifest(targets, mfname=mfname)
+        with open(mfname, 'w') as mfh:
+            mfh.write(jsonify(json_out))
+            mfh.write('\n')
+    else:
+        with open(mfname, 'w') as mfh:
+            def append_hash(fname):
+                fname = normalize_path(fname)
+                digest = hash_target(fname)
+                mfh.write(f'{digest} {fname}\n')
+            descend_targets(targets, append_hash)
 
 def sign_target(fname, ofname, key_file='private.key'):
     with open(key_file, 'r') as fh:
@@ -71,38 +81,37 @@ def sign_target(fname, ofname, key_file='private.key'):
         fh.write(RSA.PEM.encode(sig, f'Detached Signature of {fname}'))
         fh.write('\n')
 
-def verify_signature(fname, ifname, cert_file='public.crt'):
+def verify_signature(fname, sfname, cert_file='public.crt'):
     with open(cert_file, 'r') as fh:
         public_cert = RSA.importKey(fh.read())
     verifier = PKCS1_v1_5.new(public_cert)
-    with open(ifname, 'r') as fh:
-        signature,_,_ = RSA.PEM.decode(fh.read()) # also returns header and decrypted-status
+    try:
+        with open(sfname, 'r') as fh:
+            signature,_,_ = RSA.PEM.decode(fh.read()) # also returns header and decrypted-status
+    except FileNotFoundError:
+        log.error('failed to find %s for %s', sfname, fname)
+        return STATUS.UNKNOWN
     if verifier.verify(hash_target(fname, obj_mode=True), signature):
-        return True
-    return False
+        return STATUS.VERIFIED
+    return STATUS.FAIL
 
-def cmd_sign(targets, key_file='private.key', **kw):
-    for target in targets:
-        sign_target(target, f'{target}.sig', key_file=key_file)
-
-def cmd_msign(targets, mfname='MANIFEST', sfname='SIGNATURE', **kw):
-    manifest(targets, mfname=mfname)
-    if sfname in (None, False):
-        sfname = f'{mfname}.sig'
-    sign_target(mfname, sfname)
-
-
-def verify_files(targets, mfname='MANIFEST', sfname='SIGNATURE', cert_file='public.crt'):
+def verify_files(targets, mfname='MANIFEST', sfname='SIGNATURE', cert_file='public.crt', output_json=False):
     ret = OrderedDict()
     ret[mfname] = STATUS.FAIL
     ret[sfname] = STATUS.UNKNOWN
-    if not verify_signature(mfname, sfname, cert_file=cert_file):
-        return ret
-    ret[sfname] = STATUS.OK
+    if verify_signature(mfname, sfname, cert_file=cert_file) != STATUS.VERIFIED:
+        if output_json:
+            print( jsonify(ret) )
+        sys.exit(1)
+    # XXX: until we check the sfname against some certificate authority, we
+    # really have no idea if the signature itself is any good. The best we can
+    # say is that the signature matches (or not).
     ret[mfname] = STATUS.VERIFIED
-    digests = dict()
+    digests = OrderedDict()
     for target in targets:
         target = normalize_path(target)
+        if target in digests:
+            continue
         digests[target] = STATUS.UNKNOWN
     with open(mfname, 'r') as fh:
         for line in fh.readlines():
@@ -120,8 +129,8 @@ def verify_files(targets, mfname='MANIFEST', sfname='SIGNATURE', cert_file='publ
             ret[vfname] = STATUS.VERIFIED
         else:
             ret[vfname] = STATUS.FAIL
-    return ret
-
-def cmd_verify(targets, mfname='MANIFEST', sfname='SIGNATURE', key_file='public.crt'):
-    import json
-    print( json.dumps(verify_files(targets, mfname=mfname, sfname=sfname, cert_file=key_file), indent=2) )
+    if output_json:
+        print( jsonify(ret) )
+    else:
+        for vfname,res in ret.items():
+            print(f'{vfname}: {res}')
