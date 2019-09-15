@@ -28,6 +28,8 @@ class X509:
     SigData = namedtuple('SigData', ['nonzero_bits','dat', 'algo'])
 
     def __init__(self, crt_fname, ca_fname):
+        self.crt_fname = crt_fname
+        self.ca_fname = ca_fname
         with open(ca_fname, 'r') as fh:
             self.ca_raw = fh.read()
         with open(crt_fname, 'r') as fh:
@@ -44,20 +46,18 @@ class X509:
         self.verifier = PKCS1_v1_5.new(self.crt)
 
     def verify_cert(self):
+        log.error('WTF( %s )', self.sig)
         if self.sig.nonzero_bits != 0:
-            e = Exception("sig invalidated by strange nzb")
             log.error('The CA cert (%s) may not approve of this certificate (%s): %s',
                 ca_fname, crt_fname, e)
-            return (False, e)
-
+            return STATUS.UNKNOWN
         try:
             ossl.verify(self.ca, self.sig.dat, self.cdat.cert, self.sig.algo)
-            return True
-        except ossl.Error as oce:
-            log.error('The CA cert (%s) does not seem to approve of this certificate (%s): %s',
-                ca_fname, crt_fname, oce)
-            return (False, oce)
-        return # <--- this can't happen, right?
+            return STATUS.VERIFIED
+        except ossl.Error:
+            # the error ossl raises is not useful (apparently)
+            log.error('The CA cert (%s) does not seem to approve of this certificate (%s)')
+        return STATUS.UNKNOWN
 
 MANIFEST_RE = re.compile(r'^\s*(?P<digest>[0-9a-fA-F]+)\s+(?P<fname>.+)$')
 
@@ -122,10 +122,16 @@ def sign_target(fname, ofname, key_file='private.key', **kw):
         fh.write('\n')
 
 def verify_signature(fname, sfname, cert_file='public.crt', ca_fname='ca-root.crt', **kw):
+    '''
+        Given the fname, sfname cert_file and ca_fnames:
+
+        return STATUS.FAIL if the signature doesn't match
+        return STATUS.UNKNOWN if the certificate signature can't be verified with the ca cert
+        return STATUS.VERIFIED if both the signature and the CA sig match
+
+    '''
     x509 = X509(cert_file, ca_fname)
-    if not x509.verify_cert():
-        log.error('bad certificate: %s; not checking any files against it', cert_file)
-        return STATUS.FAIL
+    ca_status = x509.verify_cert()
     try:
         with open(sfname, 'r') as fh:
             signature,_,_ = RSA.PEM.decode(fh.read()) # also returns header and decrypted-status
@@ -133,7 +139,7 @@ def verify_signature(fname, sfname, cert_file='public.crt', ca_fname='ca-root.cr
         log.error('failed to find %s for %s', sfname, fname)
         return STATUS.UNKNOWN
     if x509.verifier.verify(hash_target(fname, obj_mode=True), signature):
-        return STATUS.VERIFIED
+        return ca_status
     log.error('%s failed signature check (%s)', fname, sfname)
     return STATUS.FAIL
 
@@ -148,12 +154,10 @@ def iterate_manifest(mfname):
 
 def verify_files(targets, mfname='MANIFEST', sfname='SIGNATURE', cert_file='public.crt', output_json=False, **kw):
     ret = OrderedDict()
-    ret[mfname] = STATUS.FAIL
-    if verify_signature(mfname, sfname=sfname, cert_file=cert_file, **kw) != STATUS.VERIFIED:
-        if output_json:
-            print( jsonify(ret) )
-        sys.exit(1)
-    ret[mfname] = STATUS.VERIFIED
+    ret[mfname] = verify_signature(mfname, sfname=sfname, cert_file=cert_file, **kw)
+    # ret[mfname] is the strongest claim we can make about the files we're
+    # verifiying if they match their hash in the manifest, the best we can say
+    # is whatever is the status of the manifest iteslf.
     digests = OrderedDict()
     while True:
         for target in targets:
@@ -177,7 +181,7 @@ def verify_files(targets, mfname='MANIFEST', sfname='SIGNATURE', cert_file='publ
         if digest == STATUS.UNKNOWN:
             ret[vfname] = STATUS.UNKNOWN
         elif digest == hash_target(vfname):
-            ret[vfname] = STATUS.VERIFIED
+            ret[vfname] = ret[mfname]
         else:
             ret[vfname] = STATUS.FAIL
     if output_json:
