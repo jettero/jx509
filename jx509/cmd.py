@@ -38,24 +38,24 @@ def cmd_hash(targets, output_json=False, **kw):
     if output_json:
         print(jsonify(json_out))
 
-def cmd_manifest(targets, mfname='MANIFEST', output_json=False, **kw):
+def cmd_manifest(targets, **kw):
     '''
     Create a manifest of the specified targets and output to mfname
     (corresponding to --mfname in the cli). The MANIFEST (default name) will
     contain roughly the same output as cmd_hash above.
     '''
-    manifest(targets, mfname=mfname, output_json=output_json)
+    manifest(targets, **kw)
 
-def cmd_sign(targets, key_file='private.key', **kw):
+def cmd_sign(targets, **kw):
     '''
     Sign target files with a detached signature.  All signatures will drop into
     files with the name f'{target}.sig'. Signing key can be specified with
     --signing-key (corresponding to the key_file kwarg).
     '''
     for target in targets:
-        sign_target(target, f'{target}.sig', key_file=key_file)
+        sign_target(target, f'{target}.sig', **kw)
 
-def cmd_verify(targets, cert_file='public.crt', output_json=False, **kw):
+def cmd_verify(targets, output_json=False, **kw):
     '''
     Verify detached signatures of the form f'{target}.sig'.
     '''
@@ -64,25 +64,27 @@ def cmd_verify(targets, cert_file='public.crt', output_json=False, **kw):
         json_out = OrderedDict()
         for target in targets:
             target = normalize_path(target)
-            res = verify_signature(target, f'{target}.sig', cert_file=cert_file)
+            kw['sfname'] = f'{target}.sig'
+            res = verify_signature(target, **kw)
             json_out[target] = res
         print( jsonify(json_out) )
     else:
         for target in targets:
             target = normalize_path(target)
-            res = verify_signature(target, f'{target}.sig', cert_file=cert_file)
+            kw['sfname'] = f'{target}.sig'
+            res = verify_signature(target, **kw)
             print(f'{target}: {res}')
 
-def cmd_msign(targets, mfname='MANIFEST', sfname='SIGNATURE', key_file='private.key', output_json=False, **kw):
+def cmd_msign(targets, mfname='MANIFEST', sfname='SIGNATURE', **kw):
     '''
     The ultimate goal of this tool kit is to provide the signed manifest of
     groups of files.  The hashes of all the target files will dump into mfname
     and a detached signature will drop in sfname.
     '''
-    manifest(targets, mfname=mfname, output_json=output_json)
+    manifest(targets, mfname=mfname, **kw)
     if sfname in (None, False):
         sfname = f'{mfname}.sig'
-    sign_target(mfname, sfname, key_file=key_file)
+    sign_target(mfname, sfname, **kw)
 
-def cmd_mverify(targets, mfname='MANIFEST', sfname='SIGNATURE', cert_file='public.crt', output_json=False, **kw):
-    verify_files(targets, mfname=mfname, sfname=sfname, cert_file=cert_file, output_json=output_json)
+def cmd_mverify(targets, **kw):
+    verify_files(targets, **kw)

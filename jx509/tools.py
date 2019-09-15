@@ -90,7 +90,7 @@ def descend_targets(targets, cb):
                     fname_ = os.path.join(dirpath, fname)
                     cb(fname_)
 
-def manifest(targets, mfname='MANIFEST', output_json=False):
+def manifest(targets, mfname='MANIFEST', output_json=False, **kw):
     # It'd be nice to DRY this somewhat. It's probably not worth it though the
     # non-json form (while super similar) doesn't have to store all the results
     # in ram, it can just write as it goes. Is that better than DRY? ¯\_(ツ)_/¯
@@ -112,7 +112,7 @@ def manifest(targets, mfname='MANIFEST', output_json=False):
                 mfh.write(f'{digest} {fname}\n')
             descend_targets(targets, append_hash)
 
-def sign_target(fname, ofname, key_file='private.key'):
+def sign_target(fname, ofname, key_file='private.key', **kw):
     with open(key_file, 'r') as fh:
         private_key = RSA.importKey(fh.read())
     signer = PKCS1_v1_5.new(private_key)
@@ -121,7 +121,7 @@ def sign_target(fname, ofname, key_file='private.key'):
         fh.write(RSA.PEM.encode(sig, f'Detached Signature of {fname}'))
         fh.write('\n')
 
-def verify_signature(fname, sfname, cert_file='public.crt', ca_fname='ca-root.crt'):
+def verify_signature(fname, sfname, cert_file='public.crt', ca_fname='ca-root.crt', **kw):
     x509 = X509(cert_file, ca_fname)
     if not x509.verify_cert():
         log.error('bad certificate: %s; not checking any files against it', cert_file)
@@ -137,24 +137,33 @@ def verify_signature(fname, sfname, cert_file='public.crt', ca_fname='ca-root.cr
     log.error('%s failed signature check (%s)', fname, sfname)
     return STATUS.FAIL
 
-def verify_files(targets, mfname='MANIFEST', sfname='SIGNATURE', cert_file='public.crt', output_json=False):
+def iterate_manifest(mfname):
+    with open(mfname, 'r') as fh:
+        for line in fh.readlines():
+            matched = MANIFEST_RE.match(line)
+            if matched:
+                _,manifested_fname = matched.groups()
+                manifested_fname = normalize_path(manifested_fname)
+                yield manifested_fname
+
+def verify_files(targets, mfname='MANIFEST', sfname='SIGNATURE', cert_file='public.crt', output_json=False, **kw):
     ret = OrderedDict()
     ret[mfname] = STATUS.FAIL
-    ret[sfname] = STATUS.UNKNOWN
-    if verify_signature(mfname, sfname, cert_file=cert_file) != STATUS.VERIFIED:
+    if verify_signature(mfname, sfname=sfname, cert_file=cert_file, **kw) != STATUS.VERIFIED:
         if output_json:
             print( jsonify(ret) )
         sys.exit(1)
-    # XXX: until we check the sfname against some certificate authority, we
-    # really have no idea if the signature itself is any good. The best we can
-    # say is that the signature matches (or not).
     ret[mfname] = STATUS.VERIFIED
     digests = OrderedDict()
-    for target in targets:
-        target = normalize_path(target)
-        if target in digests:
-            continue
-        digests[target] = STATUS.UNKNOWN
+    while True:
+        for target in targets:
+            target = normalize_path(target)
+            if target in digests or target in (mfname, sfname):
+                continue
+            digests[target] = STATUS.UNKNOWN
+        if digests:
+            break
+        targets = list(iterate_manifest(mfname))
     with open(mfname, 'r') as fh:
         for line in fh.readlines():
             matched = MANIFEST_RE.match(line)
