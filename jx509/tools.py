@@ -117,7 +117,7 @@ def sign_target(fname, ofname, key_file='private.key', **kw):
     signer = PKCS1_v1_5.new(private_key)
     sig = signer.sign(hash_target(fname, obj_mode=True))
     with open(ofname, 'w') as fh:
-        fh.write(RSA.PEM.encode(sig, f'Detached Signature of {fname}'))
+        fh.write(PEM.encode(sig, f'Detached Signature of {fname}'))
         fh.write('\n')
 
 def verify_signature(fname, sfname, cert_file='public.crt', ca_fname='ca-root.crt', **kw):
@@ -133,7 +133,7 @@ def verify_signature(fname, sfname, cert_file='public.crt', ca_fname='ca-root.cr
     ca_status = x509.verify_cert()
     try:
         with open(sfname, 'r') as fh:
-            signature,_,_ = RSA.PEM.decode(fh.read()) # also returns header and decrypted-status
+            signature,_,_ = PEM.decode(fh.read()) # also returns header and decrypted-status
     except FileNotFoundError:
         log.error('failed to find %s for %s', sfname, fname)
         return STATUS.UNKNOWN
