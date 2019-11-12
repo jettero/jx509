@@ -17,7 +17,7 @@ class PyTest(TestCommand):
         errno = pytest.main(shlex.split(self.pytest_args))
         sys.exit(errno)
 
-MODS = [ 'pycrypto', 'click' ]
+MODS = [ 'pycryptodome', 'click' ]
 
 setup(name='jx509',
     use_scm_version = {

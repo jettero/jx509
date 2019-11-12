@@ -46,9 +46,8 @@ class X509:
         self.verifier = PKCS1_v1_5.new(self.crt)
 
     def verify_cert(self):
-        log.error('WTF( %s )', self.sig)
         if self.sig.nonzero_bits != 0:
-            log.error('The CA cert (%s) may not approve of this certificate (%s): %s',
+            log.error('The CA cert (%s) may not approve of this certificate (%s): unusual header',
                 ca_fname, crt_fname, e)
             return STATUS.UNKNOWN
         try:
